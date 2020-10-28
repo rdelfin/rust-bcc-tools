@@ -35,16 +35,19 @@ struct Opt {
         help = "The total duration to run this tool, in seconds."
     )]
     duration: Option<u64>,
+    #[structopt(short = "p", long = "pid", help = "The PID of the process to snoop.")]
+    pid: Option<u64>,
 }
 
 fn do_main(runnable: Arc<AtomicBool>) -> Result<()> {
     let opt = Opt::from_args();
 
     let duration: Option<std::time::Duration> = opt.duration.map(|v| Duration::new(v, 0));
+    let pid = opt.pid.map_or(-1, |p| p as i64);
 
-    let code = include_str!("opensnoop.c");
+    let code = include_str!("opensnoop.c").replace("PID", &pid.to_string());
     // Compile the above BPF code
-    let mut module = BPF::new(code)?;
+    let mut module = BPF::new(&code)?;
     // Load and attach kprobes
     Kprobe::new()
         .handler("trace_entry")

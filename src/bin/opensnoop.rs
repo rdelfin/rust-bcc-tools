@@ -1,18 +1,15 @@
-extern crate bcc;
-extern crate byteorder;
-extern crate ctrlc;
-extern crate libc;
-extern crate structopt_derive;
-
 use anyhow::Result;
-use bcc::perf_event::init_perf_map;
-use bcc::{Kprobe, Kretprobe, BPF};
-use structopt::StructOpt;
-
+use bcc::{
+    perf_event::PerfMapBuilder,
+    {Kprobe, Kretprobe, BPF},
+};
 use core::sync::atomic::{AtomicBool, Ordering};
-use std::ptr;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    ptr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use structopt::StructOpt;
 
 #[repr(C)]
 struct data_t {
@@ -42,7 +39,7 @@ struct Opt {
 fn do_main(runnable: Arc<AtomicBool>) -> Result<()> {
     let opt = Opt::from_args();
 
-    let duration: Option<std::time::Duration> = opt.duration.map(|v| Duration::new(v, 0));
+    let duration: Option<Duration> = opt.duration.map(|v| Duration::new(v, 0));
     let pid = opt.pid.map_or(-1, |p| p as i64);
 
     let code = include_str!("opensnoop.c").replace("PID", &pid.to_string());
@@ -61,10 +58,10 @@ fn do_main(runnable: Arc<AtomicBool>) -> Result<()> {
     // The "events" table is where the "open file" events get sent
     let table = module.table("events")?;
     // Install a callback to print out the file open events when they happen
-    let mut perf_map = init_perf_map(table, perf_data_callback)?;
+    let mut perf_map = PerfMapBuilder::new(table, perf_data_callback).build()?;
     // print a header
     println!("{:-7} {:-16} {}", "PID", "COMM", "FILENAME");
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     // this .poll() loop is what makes our callback get called
     while runnable.load(Ordering::SeqCst) {
         perf_map.poll(200);

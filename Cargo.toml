@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Ricardo Delfin <me@rdelfin.com>"]
 edition = "2018"
 
+[[bin]]
+name = "opensnoop"
+
 [dependencies]
 anyhow = "1.0.33"
 bcc = "0.0.29"

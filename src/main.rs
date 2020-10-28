@@ -3,10 +3,10 @@ extern crate byteorder;
 extern crate ctrlc;
 extern crate libc;
 
-use bcc::core::BPF;
-use bcc::perf::init_perf_map;
+use anyhow::Result;
+use bcc::perf_event::init_perf_map;
+use bcc::{Kprobe, Kretprobe, BPF};
 use clap::{App, Arg};
-use failure::Error;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::ptr;
@@ -21,7 +21,7 @@ struct data_t {
     fname: [u8; 255], // NAME_MAX
 }
 
-fn do_main(runnable: Arc<AtomicBool>) -> Result<(), Error> {
+fn do_main(runnable: Arc<AtomicBool>) -> Result<()> {
     let matches = App::new("opensnoop")
         .about("Prints out filename + PID every time a file is opened")
         .arg(
@@ -41,12 +41,17 @@ fn do_main(runnable: Arc<AtomicBool>) -> Result<(), Error> {
     // Compile the above BPF code
     let mut module = BPF::new(code)?;
     // Load and attach kprobes
-    let return_probe = module.load_kprobe("trace_return")?;
-    let entry_probe = module.load_kprobe("trace_entry")?;
-    module.attach_kprobe("do_sys_open", entry_probe)?;
-    module.attach_kretprobe("do_sys_open", return_probe)?;
+    Kprobe::new()
+        .handler("trace_entry")
+        .function("do_sys_open")
+        .attach(&mut module)?;
+    Kretprobe::new()
+        .handler("trace_return")
+        .function("do_sys_open")
+        .attach(&mut module)?;
+
     // The "events" table is where the "open file" events get sent
-    let table = module.table("events");
+    let table = module.table("events")?;
     // Install a callback to print out the file open events when they happen
     let mut perf_map = init_perf_map(table, perf_data_callback)?;
     // print a header
@@ -98,7 +103,7 @@ fn main() {
     match do_main(runnable) {
         Err(x) => {
             eprintln!("Error: {}", x);
-            eprintln!("{}", x.backtrace());
+            eprintln!("{:?}", x.backtrace());
             std::process::exit(1);
         }
         _ => {}

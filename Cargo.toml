@@ -7,6 +7,9 @@ edition = "2018"
 [[bin]]
 name = "opensnoop"
 
+[[bin]]
+name = "execsnoop"
+
 [dependencies]
 anyhow = "1.0.33"
 bcc = "0.0.29"

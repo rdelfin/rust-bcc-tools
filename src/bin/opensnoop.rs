@@ -2,15 +2,17 @@ extern crate bcc;
 extern crate byteorder;
 extern crate ctrlc;
 extern crate libc;
+extern crate structopt_derive;
 
 use anyhow::Result;
 use bcc::perf_event::init_perf_map;
 use bcc::{Kprobe, Kretprobe, BPF};
-use clap::{App, Arg};
+use structopt::StructOpt;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::ptr;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[repr(C)]
 struct data_t {
@@ -21,21 +23,24 @@ struct data_t {
     fname: [u8; 255], // NAME_MAX
 }
 
-fn do_main(runnable: Arc<AtomicBool>) -> Result<()> {
-    let matches = App::new("opensnoop")
-        .about("Prints out filename + PID every time a file is opened")
-        .arg(
-            Arg::with_name("duration")
-                .long("duration")
-                .value_name("Seconds")
-                .help("The total duration to run this tool")
-                .takes_value(true),
-        )
-        .get_matches();
+#[derive(Debug, StructOpt)]
+#[structopt(
+    name = "opensnoop",
+    about = "Prints out filename + PID every time a file is opened."
+)]
+struct Opt {
+    #[structopt(
+        short = "d",
+        long = "duration",
+        help = "The total duration to run this tool, in seconds."
+    )]
+    duration: Option<u64>,
+}
 
-    let duration: Option<std::time::Duration> = matches
-        .value_of("duration")
-        .map(|v| std::time::Duration::new(v.parse().expect("Invalid argument for duration"), 0));
+fn do_main(runnable: Arc<AtomicBool>) -> Result<()> {
+    let opt = Opt::from_args();
+
+    let duration: Option<std::time::Duration> = opt.duration.map(|v| Duration::new(v, 0));
 
     let code = include_str!("opensnoop.c");
     // Compile the above BPF code

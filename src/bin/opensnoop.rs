@@ -97,7 +97,7 @@ fn get_string(x: &[u8]) -> String {
     }
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let runnable = Arc::new(AtomicBool::new(true));
     let r = runnable.clone();
     ctrlc::set_handler(move || {
@@ -105,12 +105,5 @@ fn main() {
     })
     .expect("Failed to set handler for SIGINT / SIGTERM");
 
-    match do_main(runnable) {
-        Err(x) => {
-            eprintln!("Error: {}", x);
-            eprintln!("{:?}", x.backtrace());
-            std::process::exit(1);
-        }
-        _ => {}
-    }
+    do_main(runnable)
 }
